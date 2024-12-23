@@ -3,7 +3,7 @@ from flask_cors import CORS
 from pymongo import MongoClient
 import random
 import re
-
+from bson import ObjectId
 app = Flask(__name__)
 CORS(app)  
 port=5000
@@ -16,6 +16,38 @@ DATABASE_NAME = "WARDROBE"
 client = MongoClient(MONGO_URI)
 db = client[DATABASE_NAME]
 
+def serialize_document(doc):
+    """Converts MongoDB document to a serializable format"""
+    doc['_id'] = str(doc['_id'])  # Convert ObjectId to string
+    return doc
+
+
+@app.route('/getColors', methods=['GET'])
+def get_colors():
+    try:
+        collection=db['COLOURS_DATA']
+        color_data = list(collection.find())  # Retrieve all documents, including the '_id'
+
+        # Convert ObjectId to string for each document
+        color_data = [serialize_document(doc) for doc in color_data]
+
+        if color_data:
+            return jsonify({
+                "status": "success",
+                "data": color_data  # Properly formatted data without BSON types
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": "No data found"
+            }), 404
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+    
 
 @app.route('/getOutfit', methods=['POST'])
 def predict():
