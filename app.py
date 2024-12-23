@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
 import random
+import re
 
 app = Flask(__name__)
 CORS(app)  
@@ -25,6 +26,8 @@ def predict():
         Style=manual_input.get('Style')
         Watch=manual_input.get('Watch')
         Belt=manual_input.get('Belt')
+        preferred_shirt = manual_input.get('preferred_shirt', [])
+        preferred_pants = manual_input.get('preferred_pants', [])
         
         if Belt=='YES':
             random_variable = random.randint(1, 10)
@@ -38,14 +41,21 @@ def predict():
             database=Outfit
         collection=db[database]
         query = {
-            "Outfit": Outfit,
-            "Style": Style,
-            "Watch": Watch,
-            "Belt": Belt
+            "Outfit": {"$regex": f"^{Outfit}$", "$options": "i"},
+            "Style": {"$regex": f"^{Style}$", "$options": "i"},
+            "Watch": {"$regex": f"^{Watch}$", "$options": "i"},
+            "Belt": {"$regex": f"^{Belt}$", "$options": "i"}
         }
 
+        # Add case-insensitive filters for preferred shirt and pants colors
+        if preferred_shirt:
+            query["Shirt"] = {"$in": [re.compile(f"^{color}$", re.IGNORECASE) for color in preferred_shirt]}
+        if preferred_pants:
+            query["Pants"] = {"$in": [re.compile(f"^{color}$", re.IGNORECASE) for color in preferred_pants]}
+
+
         # Query the database
-        matched_entries = list(collection.find(query, {"_id": 0}))  
+        matched_entries = list(collection.find(query, {"_id": 0})) 
         
         if not matched_entries:
             return jsonify({
@@ -53,13 +63,13 @@ def predict():
                 "message": "No matching entries found.",
                 "data": []
             })
-        random_entry = random.choice(matched_entries)
-        if random_entry['Pants']=='BROWN':
-            random_entry['Belt']='BROWN'
-        else:
-            random_entry['Belt']='BLACK'
+        for i in matched_entries:
+            if i['Pants']=='BROWN':
+                i['Belt']='BROWN'
+            else:
+                i['Belt']='BLACK'
         return jsonify({
-            "data":random_entry
+            "data":matched_entries
         })
     except ValueError as e:
         return jsonify({"status": "error", "message": str(e)}), 400
