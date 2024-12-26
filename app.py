@@ -49,6 +49,71 @@ def get_colors():
         }), 500
     
 
+# @app.route('/getOutfit', methods=['POST'])
+# def predict():
+#     try:
+#         # Get JSON data from request
+#         manual_input = request.json
+#         Outfit=manual_input.get('Outfit')
+#         Style=manual_input.get('Style')
+#         Watch=manual_input.get('Watch')
+#         Belt=manual_input.get('Belt')
+#         Shoes=manual_input.get('Shoes')
+#         preferred_shirt = manual_input.get('preferred_shirt', [])
+#         preferred_pants = manual_input.get('preferred_pants', [])
+#         preferred_shoes = manual_input.get('preferred_shoes', [])
+        
+#         if Outfit=='FORMAL':
+#             database=Outfit+'_'+Style
+#         else:
+#             database=Outfit
+#         collection=db[database]
+#         query = {
+#             "outfit_input": {"$regex": f"^{Outfit}$", "$options": "i"},
+#             "style_input": {"$regex": f"^{Style}$", "$options": "i"},
+#             "watch_input": {"$regex": f"^{Watch}$", "$options": "i"},
+#             "belt_input": {"$regex": f"^{Belt}$", "$options": "i"},
+#             "shoes_input": {"$regex": f"^{Shoes}$", "$options": "i"}
+#         }
+
+#         # Add case-insensitive filters for preferred shirt and pants colors
+#         if len(preferred_shirt)>0:
+#             query["shirt_output"] = {"$in": [re.compile(f"^{color}$", re.IGNORECASE) for color in preferred_shirt]}
+#         if len(preferred_pants)>0:
+#             query["pant_output"] = {"$in": [re.compile(f"^{color}$", re.IGNORECASE) for color in preferred_pants]}
+#         if len(preferred_shoes)>0:
+#             query["shoes_output"] = {"$in": [re.compile(f"^{color}$", re.IGNORECASE) for color in preferred_shoes]}
+
+
+#         # Query the database
+#         matched_entries = list(collection.find(query, {"_id": 0})) 
+        
+#         if not matched_entries:
+#             return jsonify({
+#                 "status": "success",
+#                 "message": "No matching entries found.",
+#                 "data": []
+#             })
+        
+#         processed_data = []
+#         for entry in matched_entries:
+#             processed_entry = {}
+#             for key, value in entry.items():
+#                 if key.endswith('_output'):
+#                     new_key = key.replace('_output', '')  
+#                     processed_entry[new_key] = value
+#             processed_data.append(processed_entry)
+        
+#         return jsonify({
+#             "data": processed_data
+#         })
+#     except ValueError as e:
+#         return jsonify({"status": "error", "message": str(e)}), 400
+#     except Exception as e:
+#         return jsonify({"status": "error", "message": "An unexpected error occurred."}), 500
+
+
+
 @app.route('/getOutfit', methods=['POST'])
 def predict():
     try:
@@ -58,32 +123,35 @@ def predict():
         Style=manual_input.get('Style')
         Watch=manual_input.get('Watch')
         Belt=manual_input.get('Belt')
-        preferred_shirt = manual_input.get('preferred_shirt', [])
-        preferred_pants = manual_input.get('preferred_pants', [])
+        Shoes=manual_input.get('Shoes')
+        preferred_shirt = manual_input.get('preferred_shirt')
+        preferred_shoes = manual_input.get('preferred_shoes')
+        if Outfit == 'FORMAL':
+            preferred_pants = manual_input.get('preferred_pants')
+        elif Outfit == 'CASUAL':
+            preferred_pants = manual_input.get('preferred_jeans')
         
-        if Belt=='YES':
-            random_variable = random.randint(1, 10)
-            if random_variable%2==0:
-                Belt='BLACK'
-            else:
-                Belt='BROWN'
+        
         if Outfit=='FORMAL':
             database=Outfit+'_'+Style
         else:
             database=Outfit
         collection=db[database]
         query = {
-            "Outfit": {"$regex": f"^{Outfit}$", "$options": "i"},
-            "Style": {"$regex": f"^{Style}$", "$options": "i"},
-            "Watch": {"$regex": f"^{Watch}$", "$options": "i"},
-            "Belt": {"$regex": f"^{Belt}$", "$options": "i"}
+            "outfit_input": {"$regex": f"^{Outfit}$", "$options": "i"},
+            "style_input": {"$regex": f"^{Style}$", "$options": "i"},
+            "watch_input": {"$regex": f"^{Watch}$", "$options": "i"},
+            "belt_input": {"$regex": f"^{Belt}$", "$options": "i"},
+            "shoes_input": {"$regex": f"^{Shoes}$", "$options": "i"}
         }
 
         # Add case-insensitive filters for preferred shirt and pants colors
-        if preferred_shirt:
-            query["Shirt"] = {"$in": [re.compile(f"^{color}$", re.IGNORECASE) for color in preferred_shirt]}
-        if preferred_pants:
-            query["Pants"] = {"$in": [re.compile(f"^{color}$", re.IGNORECASE) for color in preferred_pants]}
+        if len(preferred_shirt)>0:
+            query["shirt_output"] = {"$in": [re.compile(f"^{color}$", re.IGNORECASE) for color in preferred_shirt]}
+        if len(preferred_pants)>0:
+            query["pant_output"] = {"$in": [re.compile(f"^{color}$", re.IGNORECASE) for color in preferred_pants]}
+        if len(preferred_shoes)>0:
+            query["shoes_output"] = {"$in": [re.compile(f"^{color}$", re.IGNORECASE) for color in preferred_shoes]}
 
 
         # Query the database
@@ -95,18 +163,32 @@ def predict():
                 "message": "No matching entries found.",
                 "data": []
             })
-        for i in matched_entries:
-            if i['Pants']=='BROWN':
-                i['Belt']='BROWN'
-            else:
-                i['Belt']='BLACK'
+        
+        processed_data = []
+        for entry in matched_entries:
+            processed_entry = {}
+            for key, value in entry.items():
+                if key.endswith('_output'):
+                    new_key = key.replace('_output', '')  
+                    processed_entry[new_key] = value
+            processed_data.append(processed_entry)
+        print(processed_data)
+        if Outfit == 'CASUAL':
+            for entry in processed_data:
+                if 'pant' in entry:
+                    entry['jeans'] = entry.pop('pant')
         return jsonify({
-            "data":matched_entries
+            "data": processed_data
         })
+
     except ValueError as e:
         return jsonify({"status": "error", "message": str(e)}), 400
     except Exception as e:
         return jsonify({"status": "error", "message": "An unexpected error occurred."}), 500
+
+
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port, debug=True)
